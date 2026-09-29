@@ -240,10 +240,17 @@ def call_gemini(data):
 
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel(
-        "gemini-2.0-flash",
+        "gemini-3.8-flash",
         generation_config={"temperature": 0.7, "max_output_tokens": 2048},
     )
-    response = model.generate_content(build_prompt(data))
+    try:
+        response = model.generate_content(build_prompt(data))
+    except Exception as exc:
+        error_text = str(exc).lower()
+        if "429" in error_text or "quota" in error_text:
+            return local_demo_response(data), "demo-fallback-quota"
+        raise
+
     parsed = extract_json(response.text)
 
     required = {"budget", "analysis", "suggestions", "summary"}
@@ -255,7 +262,7 @@ def call_gemini(data):
     if not isinstance(parsed["suggestions"], list):
         raise ValueError("Gemini suggestions are not in list format.")
 
-    return parsed, "gemini-2.0-flash"
+    return parsed, "gemini-3.8-flash"
 
 @app.route("/")
 def index():

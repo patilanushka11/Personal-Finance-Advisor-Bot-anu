@@ -2,7 +2,7 @@
 
 This implementation follows the supplied SkillWallet project workflow:
 - Gemini API key configuration
-- Gemini `gemini-2.0-flash` model
+- Gemini `gemini-3.8-flash` model
 - Flask backend
 - `/analyse` POST endpoint using JSON/AJAX
 - `build_prompt()` prompt-engineering helper
@@ -102,11 +102,20 @@ The frontend sends a JSON POST request to `/analyse`. Flask validates the data, 
 
 ## 5. Public deployment with Ngrok
 
-Add your token to `.env`:
+Install `pyngrok` from the project environment:
+
+```bat
+python -m pip install pyngrok
+```
+
+Download the Windows Ngrok client from [ngrok.com/download](https://ngrok.com/download). If Python cannot download Ngrok because of a network certificate error, place `ngrok.exe` in `myenv\Scripts\` and add its path to `.env`:
 
 ```text
 NGROK_AUTHTOKEN=your_ngrok_authtoken_here
+NGROK_PATH=D:\Personal-Finance-Advisor-Bot-anu\myenv\Scripts\ngrok.exe
 ```
+
+Create an Ngrok account, generate an authtoken, and replace the placeholder in your private `.env` file. Never put the token in `run_public.py` or commit `.env`.
 
 Then run:
 
@@ -114,7 +123,9 @@ Then run:
 python run_public.py
 ```
 
-The terminal prints a public `ngrok-free.app` URL. Keep the terminal running while demonstrating the project.
+The script starts Flask on port `5090`, creates an HTTP tunnel, and prints a public `ngrok-free.app` URL. Keep the terminal running while demonstrating the project. The free URL changes when the tunnel restarts.
+
+The app stores analysis records locally in SQLite through SQLAlchemy; it does not currently use Google Sheets.
 
 ## Important
 
