@@ -1,5 +1,13 @@
 # Personal Finance Advisor Bot — SkillWallet AI Specialist Capstone
 
+## Submission Links
+
+- **GitHub repository:** https://github.com/patilanushka11/Personal-Finance-Advisor-Bot-anu
+- **Live demo:** https://poach-specked-pager.ngrok-free.dev
+- **Developed by:** Anushka Patil
+
+The live demo is served through a temporary Ngrok tunnel and is available while the public deployment terminal is running.
+
 This implementation follows the supplied SkillWallet project workflow:
 - Gemini API key configuration
 - Gemini `gemini-3.8-flash` model
