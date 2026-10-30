@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 from datetime import datetime
@@ -6,6 +7,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
+
+logger = logging.getLogger(__name__)
 
 try:
     import google.generativeai as genai
@@ -56,7 +59,7 @@ def validate_input(data):
     if not isinstance(data, dict):
         return False, "Invalid JSON body."
 
-    name = str(data.get("name", "User")).strip()
+    name = str(data.get("name", "Anushka Patil")).strip()
     if len(name) > 100:
         return False, "Name is too long."
 
@@ -93,7 +96,7 @@ def validate_input(data):
         return False, "Goal is too long."
 
     return True, {
-        "name": name or "User",
+        "name": name or "Anushka Patil",
         "income": income,
         "expenses": cleaned,
         "goal": goal or "Emergency Fund",
@@ -154,28 +157,32 @@ def extract_json(text):
 
     text = text.strip()
 
-    # 1. Direct JSON
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
 
-    # 2. Markdown code block
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL | re.IGNORECASE)
+    candidates = []
+    fenced = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
     if fenced:
-        try:
-            return json.loads(fenced.group(1))
-        except json.JSONDecodeError:
-            pass
+        candidates.append(fenced.group(1).strip())
 
-    # 3. Raw JSON object fallback
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end > start:
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", text):
         try:
-            return json.loads(text[start:end + 1])
+            value, _ = decoder.raw_decode(text[match.start():])
+            if isinstance(value, dict):
+                return value
         except json.JSONDecodeError:
-            pass
+            continue
+
+    for candidate in candidates:
+        try:
+            value = json.loads(candidate)
+            if isinstance(value, dict):
+                return value
+        except json.JSONDecodeError:
+            continue
 
     raise ValueError("Could not parse a valid JSON object from Gemini response.")
 
@@ -251,16 +258,23 @@ def call_gemini(data):
             return local_demo_response(data), "demo-fallback-quota"
         raise
 
-    parsed = extract_json(response.text)
+    try:
+        parsed = extract_json(response.text)
+    except ValueError as exc:
+        logger.warning("Gemini returned an unparseable response; using demo fallback: %s", exc)
+        return local_demo_response(data), "demo-fallback-invalid-response"
 
     required = {"budget", "analysis", "suggestions", "summary"}
     if not required.issubset(parsed.keys()):
-        raise ValueError("Gemini response is missing required keys.")
+        logger.warning("Gemini response is missing required keys; using demo fallback.")
+        return local_demo_response(data), "demo-fallback-invalid-response"
 
     if not isinstance(parsed["budget"], list) or not isinstance(parsed["analysis"], list):
-        raise ValueError("Gemini returned an invalid structured response.")
+        logger.warning("Gemini returned invalid budget or analysis data; using demo fallback.")
+        return local_demo_response(data), "demo-fallback-invalid-response"
     if not isinstance(parsed["suggestions"], list):
-        raise ValueError("Gemini suggestions are not in list format.")
+        logger.warning("Gemini returned invalid suggestions data; using demo fallback.")
+        return local_demo_response(data), "demo-fallback-invalid-response"
 
     return parsed, "gemini-3.8-flash"
 
